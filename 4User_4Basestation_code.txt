@@ -1,0 +1,416 @@
+
+ 
+import numpy as np
+import tensorflow as tf
+import pandas as pd
+import time
+import datetime
+
+tf.compat.v1.set_random_seed(1) 
+#np.random_seed(1)
+num_epochs = 1000
+batch_size_step  = 128
+#train_set = 2000 
+#test_set = 500
+lam = 0.01
+
+
+#creating random 12 * (train_set/test_set) matrices for training and testing 
+#train_set_rand = np.random.randn(12,train_set)
+#test_set_rand = np.random.randn(12,test_set)
+
+#training_set1 = pd.read_csv(r'C:\Users\kaush\.spyder-py3\RESEARCH\testing_4.csv')
+training_set = pd.read_csv(r'C:\Users\kaush\.spyder-py3\RESEARCH\SINR_data_16C.csv')
+validation_set = pd.read_csv(r'C:\Users\kaush\.spyder-py3\RESEARCH\SINR_validation_16C_1000.csv')
+#prediction_set = pd.read_csv(r'C:\Users\kaush\.spyder-py3\RESEARCH\SINR_prediction_12C.csv')
+#validation_set1 = pd.read_csv(r'C:\Users\kaush\.spyder-py3\RESEARCH\validation_set1.csv')
+#testing_set_1 = pd.read_csv(r'C:\Users\kaush\.spyder-py3\RESEARCH\testing_1_set.csv')
+#print("Training set is:", training_set)
+#("Testing set is:", validation_set)
+#print("Testing set_1 is:", testing_set_1)
+#print(train_set_rand)
+
+
+
+
+#print("Shape of train set is:" +str(train_set_rand.shape))
+#print("Shape of test set is:" +str(test_set_rand.shape))
+
+tf.compat.v1.reset_default_graph()
+#building weights and biases for nueral network
+#first layer
+W1 = tf.compat.v1.get_variable("W1",[64,16], dtype=tf.float64, initializer=tf.contrib.layers.xavier_initializer(seed=1))
+b1 = tf.compat.v1.get_variable("b1", [64,1], dtype=tf.float64, initializer=tf.zeros_initializer())
+
+#second layer
+#[current_layer,previous_layer]
+Wi = tf.compat.v1.get_variable("Wi",[128,64], dtype=tf.float64, initializer=tf.contrib.layers.xavier_initializer(seed=1))
+bi = tf.compat.v1.get_variable("bi", [128,1], dtype=tf.float64, initializer=tf.zeros_initializer())
+
+Wi_1 = tf.compat.v1.get_variable("Wi_1",[256,128], dtype="float64", initializer=tf.contrib.layers.xavier_initializer(seed=1))
+bi_1 = tf.compat.v1.get_variable("bi_1", [256,1], dtype="float64", initializer=tf.zeros_initializer())
+
+Wi_2 = tf.compat.v1.get_variable("Wi_2",[512,256], dtype="float64", initializer=tf.contrib.layers.xavier_initializer(seed=1))
+bi_2 = tf.compat.v1.get_variable("bi_2", [512,1], dtype="float64", initializer=tf.zeros_initializer())
+
+Wi_3 = tf.compat.v1.get_variable("Wi_3",[1024,512], dtype="float64", initializer=tf.contrib.layers.xavier_initializer(seed=1))
+bi_3 = tf.compat.v1.get_variable("bi_3", [1024,1], dtype="float64", initializer=tf.zeros_initializer())
+
+Wi_4 = tf.compat.v1.get_variable("Wi_4",[2048,1024], dtype="float64", initializer=tf.contrib.layers.xavier_initializer(seed=1))
+bi_4 = tf.compat.v1.get_variable("bi_4", [2048,1], dtype="float64", initializer=tf.zeros_initializer())
+
+#Wi_5 = tf.compat.v1.get_variable("Wi_5",[2048,1024], dtype="float64", initializer=tf.contrib.layers.xavier_initializer(seed=1))
+#bi_5 = tf.compat.v1.get_variable("bi_5", [2048,1], dtype="float64", initializer=tf.zeros_initializer())
+
+W2 = tf.compat.v1.get_variable("W2",[16,2048], dtype=tf.float64, initializer=tf.contrib.layers.xavier_initializer(seed=1))
+b2 = tf.compat.v1.get_variable("b2", [16,1], dtype=tf.float64, initializer=tf.zeros_initializer())
+
+
+
+#assuming shape is in the form (r,c) r = row, c = columns 
+#X is the input data placeholder
+X = tf.compat.v1.placeholder(tf.float64, shape=(16,None))
+
+#Y is the output data placeholder
+Y = tf.compat.v1.placeholder(tf.float64, shape=(16,None))
+
+#calculating output for the hidden layer
+hidden_output = tf.add(tf.matmul(W1,X),b1)
+hidden_output = tf.nn.relu(hidden_output)
+
+hidden_output1 = tf.add(tf.matmul(Wi,hidden_output),bi)
+hidden_output1 = tf.nn.relu(hidden_output1)
+
+hidden_output2 = tf.add(tf.matmul(Wi_1,hidden_output1),bi_1)
+hidden_output2 = tf.nn.relu(hidden_output2)
+
+hidden_output3 = tf.add(tf.matmul(Wi_2,hidden_output2),bi_2)
+hidden_output3 = tf.nn.relu(hidden_output3)
+
+hidden_output4 = tf.add(tf.matmul(Wi_3,hidden_output3),bi_3)
+hidden_output4 = tf.nn.relu(hidden_output4)
+
+hidden_output5 = tf.add(tf.matmul(Wi_4,hidden_output4),bi_4)
+hidden_output5 = tf.nn.relu(hidden_output5)
+
+#hidden_output6 = tf.add(tf.matmul(Wi_5,hidden_output5),bi_5)
+#hidden_output6 = tf.nn.relu(hidden_output6)
+
+
+
+#creating the output
+Z1 = tf.add(tf.matmul(W2,hidden_output5),b2)
+Z1_transposed = tf.transpose(Z1)
+s0,s1,s2,s3 = tf.split(Z1_transposed, num_or_size_splits=4, axis=1)
+y_output_0 = tf.Variable(initial_value = 0, name = 'y_output_0', dtype = tf.float64)
+y_output_1 = tf.Variable(initial_value = 0, name = 'y_output_1', dtype = tf.float64)
+y_output_2 = tf.Variable(initial_value = 0, name = 'y_output_2', dtype = tf.float64)
+y_output_3 = tf.Variable(initial_value = 0, name = 'y_output_3', dtype = tf.float64)
+y_output_0 = tf.nn.softmax(s0, axis=1)
+y_output_1 = tf.nn.softmax(s1,axis=1)
+y_output_2 = tf.nn.softmax(s2,axis=1)
+y_output_3 = tf.nn.softmax(s3,axis=1)
+#y_output_1 = tf.transpose(y_output)
+#holder = y_output_1.numpy()
+#holder = tf.make_ndarray(y_output_1)
+#y_output_1=  tf.nn.l2_normalize(y_output_1,axis=1)
+
+
+# matrix 
+elem_add = tf.math.add_n([y_output_0,y_output_1,y_output_2,y_output_3])
+
+
+
+
+concat = tf.concat([y_output_0,y_output_1,y_output_2, y_output_3], axis= 1)
+
+concat = tf.transpose(concat)
+
+
+#cost = tf.matmul(y_output_1,X) + c
+# total = 0
+# value = 0
+# for i in range (0,3):
+#     summation = 0
+#     print("I is at:" +str(i))
+#     for j in range (0,4):
+#         print("I is at:" +str(i))
+#         print("J is at:" +str(j))
+#         #multi = 4*(i)+j
+#         #int("INDEX IN LIST:" +str(multi))
+#         ind = holder.index(holder[4*(i)+j])
+#         value = holder[4*(i)+j]
+#         summation +=value
+#         print("Value:")
+#         print(value)
+#         print("index:")
+#         print(ind)
+#     #summation += value 
+    
+#     print("SUMMATION OF VALUES:" +str(summation))
+#     #value = 0
+#     total = 1 - summation
+#     print("CONSTRAINT 1:" +str(total))
+#     relud = np.maximum(total,0)
+#     print("RELU'D VALUES:" +str(relud)) 
+
+
+sum_bs_1 = tf.Variable(initial_value = 0, name = 'sum_user_1', dtype = tf.float64)
+sum_bs_2 = tf.Variable(initial_value = 0, name = 'sum_user_2', dtype = tf.float64)
+sum_bs_3 = tf.Variable(initial_value = 0, name = 'sum_user_3', dtype = tf.float64)
+sum_bs_4 = tf.Variable(initial_value = 0, name = 'sum_user_3', dtype = tf.float64)
+
+
+#SUBTRACTING BY 0.05 TO CREATE A TOLERENCE LEVEL 
+sum_bs_1 = tf.gather(elem_add, 0, axis = 1) - 0.05
+sum_bs_2 = tf.gather(elem_add, 1, axis = 1) - 0.05
+sum_bs_3 = tf.gather(elem_add, 2, axis = 1) - 0.05
+sum_bs_4 = tf.gather(elem_add, 3, axis = 1) - 0.05
+
+
+
+
+
+#constraint_bs_1 =  tf.reduce_mean(tf.reduce_sum(tf.nn.relu(1-sum_bs_1)))
+constraint_bs_1 =  tf.nn.relu(sum_bs_1-1)
+#constraint_bs_2 =  tf.reduce_mean(tf.reduce_sum(tf.nn.relu(1-sum_bs_2)))
+constraint_bs_2 =  tf.nn.relu(sum_bs_2-1)
+#constraint_bs_3 =  tf.reduce_mean(tf.reduce_sum(tf.nn.relu(1-sum_bs_3)))
+constraint_bs_3 = tf.nn.relu(sum_bs_3-1)
+constraint_bs_4 = tf.nn.relu(sum_bs_4-1)
+constraint_sum = tf.reduce_sum([constraint_bs_1,constraint_bs_2,constraint_bs_3,constraint_bs_4])
+constraint_sum = (lam * constraint_sum)
+
+
+
+
+#addition1 = tf.add(constraint_user_1,constraint_user_3)
+# addition2= tf.add(addition1,constraint_user_2)
+#cost = tf.math.divide(cost,10000000) 
+
+objective = -tf.math.multiply(concat,X)
+
+objective_1 = tf.reduce_sum(objective, 0)
+
+cost_1 = tf.reduce_mean(objective_1)
+
+cost = tf.reduce_mean(objective_1 + constraint_sum) 
+
+
+
+#cost =  tf.reduce_mean(objective) 
+
+optimizer = tf.train.AdamOptimizer(learning_rate=0.001).minimize(cost)
+
+init = tf.global_variables_initializer()
+
+with tf.Session() as sess:
+    sess.run(init)
+    time_start = datetime.datetime.now()
+    #array_ = y_output_1.eval(session = tf.compat.v1.Session(), feed_dict={X:training_set})
+
+    # print("shape of y_output:")
+    # print(y_output.shape)
+    # print("shape of y_output1:")
+    # print(y_output_1)
+    # print("SHAPE OF Z1:")
+    # print(Z1.shape)
+    # print(sess.run(Z1, feed_dict={X:training_set}))
+    # #print(sess.run(output1, feed_dict={X:training_set}))
+    # print("User 1:")
+    # print(sess.run(s0, feed_dict={X:training_set}))
+    # print("User 2:")
+    # print(sess.run(s1, feed_dict={X:training_set}))
+    # print("User 3:")
+    # print(sess.run(s2, feed_dict={X:training_set}))
+
+    
+  
+    
+    
+    for epoch in range(num_epochs):
+        sess.run(optimizer,feed_dict={X:training_set})
+
+        # print(sess.run(s0, feed_dict={X:training_set}))
+        # print("Sum of user1:")
+        # print(sess.run(sum_user_1, feed_dict={X:training_set}))
+        # print("Sum of user2:")
+        # print(sess.run(sum_user_2, feed_dict={X:training_set}))
+        # print("Sum of user3:")
+        # print(sess.run(sum_user_3, feed_dict={X:training_set}))
+        # print("Constraint1:")
+        # print(sess.run(constraint_user_1, feed_dict={X:training_set}))
+        # print("Constraint2:")
+        # print(sess.run(constraint_user_2, feed_dict={X:training_set}))
+        # print("Constraint3:")
+        # print(sess.run(constraint_user_3, feed_dict={X:training_set}))
+        # print("Addition1:")
+        # print(sess.run(addition1, feed_dict={X:training_set}))
+        # print("Cost")
+        # print(sess.run(cost, feed_dict={X:training_set}))
+        #print(sess.run(s1, feed_dict={X:training_set}))
+        #print(sess.run(s2, feed_dict={X:training_set}))
+        if (epoch % batch_size_step ==0):
+            cost_train = sess.run(cost, feed_dict={X:training_set})
+            #print(sess.run(constraint))
+            #print("CONSTRAINT VALUE:"+str(constraint))
+            print("Shape of cost:" +str(cost_train.shape))
+            print("Epoch: " +str(epoch) + "  cost= "+ str(cost_train))
+            print("Throughput Cost:")
+            print(sess.run(cost_1, feed_dict={X:training_set}))
+            print("Association of training:")
+            c0 = sess.run(y_output_0, feed_dict={X:training_set})
+            c1 = sess.run(y_output_1, feed_dict={X:training_set})
+            c2 = sess.run(y_output_2, feed_dict={X:training_set})
+            # print("objective")
+            # print(objective.shape)
+            # print(sess.run(objective, feed_dict={X:training_set}))
+            # print("objective_1 sum")
+            # print(sess.run(objective_1, feed_dict={X:training_set}))
+            # print("concat")
+            # print(sess.run(concat, feed_dict={X:training_set}))
+            # print(concat.shape)
+            # print("Output from y0")
+            # print(c0)
+            # print("Output from y1")    
+            # print(c1)
+            # print("Output from y2")
+            # print(c2)
+            # print("shape of elem_add")
+            # print(elem_add.shape)
+            # print("BS1 Sum")
+            # v_1 = sess.run(sum_bs_1, feed_dict={X:training_set})
+            # # print(v_1.shape)
+            # print(v_1)
+            # # print("BS1_relu_sum")
+            # # b_1 = sess.run(constraint_bs_1, feed_dict={X:training_set})
+            # # print(b_1[0:20])
+            # # print("BS2 Sum")
+            # v = sess.run(sum_bs_2, feed_dict={X:training_set})
+            # # print(v.shape)
+            # print(v)
+            # # print("BS2_relu_sum")
+            # # b = sess.run(constraint_bs_2, feed_dict={X:training_set})
+            # # print(b[0:20])
+            # # print("BS3 Sum")
+            # v_2 = sess.run(sum_bs_3, feed_dict={X:training_set})
+            # # print(v_2.shape)
+            # print(v_2)
+            # # print("BS3_relu_sum")
+            # # b_2 = sess.run(constraint_bs_3, feed_dict={X:training_set})
+            # # print(b_2[0:20])
+            # v_3 = sess.run(sum_bs_4, feed_dict={X:training_set})
+            # print(v_3)
+            cs_sum = sess.run(constraint_sum, feed_dict={X:training_set})
+            print("Constraint sum:" +str(cs_sum))
+            bs1_check_t = sess.run(constraint_bs_1, feed_dict={X:training_set})
+            bs2_check_t = sess.run(constraint_bs_2, feed_dict={X:training_set})
+            bs3_check_t = sess.run(constraint_bs_3, feed_dict={X:training_set})
+            bs4_check_t = sess.run(constraint_bs_4, feed_dict={X:training_set})
+            
+            # bs1_sum = sess.run(sum_bs_1, feed_dict={X:training_set})
+            # bs1_sum = sess.run(sum_bs_1, feed_dict={X:training_set})
+            
+            # print("Sum BS1")
+            # print(bs1_sum)
+            
+            # bs1_z = np.count_nonzero(bs1_check_t)
+            # bs2_z = np.count_nonzero(bs2_check_t)
+            # bs3_z = np.count_nonzero(bs3_check_t)
+            # bs4_z = np.count_nonzero(bs4_check_t)
+            
+            # print("bs1 zeroes" +str(bs1_z))
+            # print("Shape of Bs1 constraint")
+            # print(bs1_check_t.shape)
+            # print(bs1_check_t)
+            # print("bs2 zeroes" +str(bs2_z))
+            # print("bs3 zeroes" +str(bs3_z))
+            # print("bs4 zeroes" +str(bs4_z))
+            
+            duration = datetime.datetime.now()
+    #print(sess.run(y_output, feed_dict={X:training_set}))
+    print("Training started at: "+str(time_start))
+    print("training ended at :" +str(duration)) 
+    t_delta = duration - time_start
+    print ("Total trainig time: " + str(t_delta))      
+    # cost_val=sess.run(cost, feed_dict={X:validation_set}) 
+    # print("VALIDATION DATA RESULTS:")
+    # print(sess.run(y_output_1, feed_dict={X:validation_set}))
+    # print("The cost for validation data is: " + str(cost_val))
+    cost_predict = sess.run(cost, feed_dict={X:validation_set})
+    cost_predict_1 = sess.run(cost_1, feed_dict={X:validation_set})
+    print("VALIDATION DATA RESULTS:")
+    predict_time = datetime.datetime.now()
+    predict_check1 = sess.run(y_output_0, feed_dict={X:validation_set})
+    predict_check2 = sess.run(y_output_1, feed_dict={X:validation_set})
+    predict_check3 = sess.run(y_output_2, feed_dict={X:validation_set})
+    predict_check4 = sess.run(y_output_3, feed_dict={X:validation_set})
+    predict_duration = datetime.datetime.now()
+    bs1_check = sess.run(constraint_bs_1, feed_dict={X:validation_set})
+    bs2_check = sess.run(constraint_bs_2, feed_dict={X:validation_set})
+    bs3_check = sess.run(constraint_bs_3, feed_dict={X:validation_set})
+    bs4_check = sess.run(constraint_bs_4, feed_dict={X:validation_set})
+    bs1_z = np.count_nonzero(bs1_check)
+    bs2_z = np.count_nonzero(bs2_check)
+    bs3_z = np.count_nonzero(bs3_check)
+    bs4_z = np.count_nonzero(bs4_check)
+    print("bs1 nonzeroes " +str(bs1_z))
+    print("bs2 nonzeroes " +str(bs2_z))
+    print("bs3 nonzeroes " +str(bs3_z))
+    print("bs4 nonzeroes " +str(bs4_z))
+    bs1_zeroes = np.asarray(bs1_check)
+    bs2_zeroes = np.asarray(bs2_check)
+    bs3_zeroes = np.asarray(bs3_check)
+    bs4_zeroes = np.asarray(bs4_check)
+    np.savetxt("bs1_zeros.csv", bs1_zeroes, delimiter=",")
+    np.savetxt("bs2_zeros.csv", bs2_zeroes, delimiter=",")
+    np.savetxt("bs3_zeros.csv", bs3_zeroes, delimiter=",")
+    np.savetxt("bs4_zeros.csv", bs4_zeroes, delimiter=",")
+    predict_check_array = np.asarray(predict_check1)
+    predict_check_array1 = np.asarray(predict_check2)
+    predict_check_array2 = np.asarray(predict_check3)
+    predict_check_array3 = np.asarray(predict_check4)
+    combined_predicts = np.concatenate((predict_check_array,predict_check_array1,predict_check_array2,predict_check_array3),axis = 1)
+    np.savetxt("results.csv", combined_predicts, delimiter=",")
+    # print("Output from y0")
+    # print(predict_check1)
+    # print("Output from y1") 
+    # print(predict_check2)
+    # print("Output from y2")
+    # print(predict_check3)
+    # print("BS1 CONSTRAINT")
+    # print(bs1_check)
+    # print("BS2 CONSTRAINT")
+    # print(bs2_check)
+    # print("BS3 CONSTRAINT")
+    # print(bs3_check)
+
+
+    predict_delta = predict_duration - predict_time
+    print("The cost for validation data with lambda: " + str(cost_predict))
+    print("The throughput for validation data: " + str(cost_predict_1))
+    print("Total time taken to validation:" + str(predict_delta))
+    # numpy_array = np.genfromtxt("SINR_prediction_12C.csv", delimiter=";", skip_header=1)
+
+    # print(numpy_array)
+
+    # A = numpy_array[:4]
+    # B = numpy_array[4:8]
+    # C = numpy_array[8:12]
+
+    # max_a = np.amax(A)
+    # max_b = np.amax(B)
+    # max_c = np.amax(C)
+
+    # #print(max_a)
+
+    # max_sinr = max_a + max_b + max_c
+    # print("cost of MAX_SINR is:" +str(max_sinr))
+print("shape of Prediction Data:", predict_check1.shape)
+print("Sum of Prediction Data:", predict_check1.sum())
+print("Optimization Finished!")
+
+
+    
+        
+            
